@@ -345,7 +345,7 @@
     <!-- Header -->
     <header class="text-center mb-5">
         <h1 class="futuristic-title mb-2">CERT-GEN v2.0</h1>
-        <p class="text-secondary">DILG Certificate Automation System</p>
+        <p class="text-secondary">DILG Certificate kiel Automation System</p>
     </header>
 
     <!-- Progress Stepper -->
