@@ -337,6 +337,76 @@
         .stepper-input[type=number] {
             -moz-appearance: textfield;
         }
+
+        .finalize-grid {
+            display: grid;
+            grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+            gap: 24px;
+            align-items: start;
+            text-align: left;
+        }
+
+        .finalize-panel {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-glass);
+            border-radius: 18px;
+            padding: 24px;
+        }
+
+        .finalize-stat {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .finalize-stat:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .finalize-preview-stage {
+            position: relative;
+            border-radius: 18px;
+            overflow: hidden;
+            border: 1px solid rgba(0, 242, 255, 0.25);
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .finalize-preview-image {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .finalize-preview-field {
+            position: absolute;
+            font-weight: bold;
+            white-space: nowrap;
+            transform: translate(-50%, -50%);
+        }
+
+        .finalize-preview-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .finalize-recipient-name {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--primary-neon);
+            letter-spacing: 1px;
+        }
+
+        @media (max-width: 991.98px) {
+            .finalize-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
@@ -474,14 +544,64 @@
 
                 <!-- STEP 3: FINALIZE -->
                 <div class="step-content" id="step3">
-                    <div class="glass-card p-5 text-center">
-                        <i class="fas fa-paper-plane upload-icon mb-4"></i>
-                        <h3 class="mb-3">Ready to Send</h3>
-                        <p class="text-secondary mb-5">Everything looks good! Click the button below to generate and send certificates to all recipients.</p>
-                        
-                        <div class="alert alert-info bg-transparent border-info text-info mb-5 mx-auto" style="max-width: 500px;">
-                            <i class="fas fa-info-circle me-2"></i>
-                            The system will process the CSV and send each certificate as a PDF attachment.
+                    <div class="glass-card p-4 p-lg-5">
+                        <div class="text-center mb-4">
+                            <i class="fas fa-paper-plane upload-icon mb-4"></i>
+                            <h3 class="mb-3">Ready to Send</h3>
+                            <p class="text-secondary mb-0">Review actual certificate output from your CSV before generating the PDF batch.</p>
+                        </div>
+
+                        <div class="finalize-grid mb-4">
+                            <div class="finalize-panel">
+                                <div class="alert alert-info bg-transparent border-info text-info mb-4">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    The system will process the CSV and send each certificate as a PDF attachment.
+                                </div>
+                                <div class="finalize-stat">
+                                    <span class="text-secondary">Recipients</span>
+                                    <strong id="finalRecipientCount">0</strong>
+                                </div>
+                                <div class="finalize-stat">
+                                    <span class="text-secondary">Mapped fields</span>
+                                    <strong id="finalFieldCount">0</strong>
+                                </div>
+                                <div class="finalize-stat">
+                                    <span class="text-secondary">Template</span>
+                                    <strong id="finalTemplateName">Not loaded</strong>
+                                </div>
+                                <div class="mt-4 pt-2">
+                                    <div class="small text-secondary mb-1">Recipient being previewed</div>
+                                    <div class="finalize-recipient-name" id="finalRecipientName">No recipient selected</div>
+                                    <div class="small text-secondary mt-2" id="finalRecipientEmail">Upload CSV and template to preview certificates.</div>
+                                </div>
+                            </div>
+
+                            <div class="finalize-panel">
+                                <div class="finalize-preview-toolbar">
+                                    <div>
+                                        <div class="small text-secondary">Certificate Preview</div>
+                                        <div id="previewRecipientIndicator">Recipient 0 of 0</div>
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <button type="button" class="btn btn-neon-secondary px-3" onclick="changeFinalizePreview(-1)">
+                                            <i class="fas fa-arrow-left me-2"></i> Previous
+                                        </button>
+                                        <button type="button" class="btn btn-neon px-3" onclick="changeFinalizePreview(1)">
+                                            Next <i class="fas fa-arrow-right ms-2"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div id="finalizePreviewEmpty" class="text-secondary py-5 text-center">
+                                    Upload a CSV and certificate template to preview personalized certificates here.
+                                </div>
+
+                                <div id="finalizePreviewWrapper" class="d-none">
+                                    <div id="finalizePreviewStage" class="finalize-preview-stage">
+                                        <img id="finalizePreviewImage" class="finalize-preview-image" src="" alt="Certificate Preview">
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="d-flex justify-content-center gap-3">
@@ -516,7 +636,10 @@
     const totalSteps = 3;
     let csvHeaders = [];
     let csvFirstRowLower = {};
+    let csvRecords = [];
     let csvReady = false;
+    let templatePreviewSrc = '';
+    let previewRecipientIndex = 0;
     let fields = [
         { id: 'field_name', label: 'name', placeholder: 'RECIPIENT NAME', x: 50, y: 50, size: 36, color: '#000000' }
     ];
@@ -564,6 +687,10 @@
 
         // Sync fields JSON before moving to Step 2 or 3
         document.getElementById('fieldsJson').value = JSON.stringify(fields);
+
+        if (step === 3) {
+            renderFinalizePreview();
+        }
     }
 
     // Template Upload Preview
@@ -573,10 +700,12 @@
             document.getElementById('templateStatus').innerText = file.name;
             const reader = new FileReader();
             reader.onload = function(e) {
-                document.getElementById('previewImage').src = e.target.result;
+                templatePreviewSrc = e.target.result;
+                document.getElementById('previewImage').src = templatePreviewSrc;
                 document.getElementById('uploadArea').classList.add('d-none');
                 document.getElementById('previewArea').classList.remove('d-none');
                 renderFields();
+                renderFinalizePreview();
             }
             reader.readAsDataURL(file);
         }
@@ -584,8 +713,10 @@
 
     function resetTemplate() {
         document.getElementById('templateInput').value = '';
+        templatePreviewSrc = '';
         document.getElementById('uploadArea').classList.remove('d-none');
         document.getElementById('previewArea').classList.add('d-none');
+        renderFinalizePreview();
     }
 
     // Fields Management
@@ -624,6 +755,7 @@
                 if (textInput) textInput.value = field.display_text;
             }
             syncPreviewField(id);
+            renderFinalizePreview();
         }
     }
 
@@ -740,6 +872,35 @@
     function getFirstRowValue(label) {
         if (!label) return '';
         return csvFirstRowLower[String(label).trim().toLowerCase()] ?? '';
+    }
+
+    function buildRecordMap(headers, row) {
+        const map = {};
+        headers.forEach((h, idx) => {
+            map[String(h).trim()] = (row && typeof row[idx] !== 'undefined') ? String(row[idx]).trim() : '';
+        });
+
+        const displayName = computeDisplayNameFromRow(headers, row);
+        if (displayName) {
+            map.display_name = displayName;
+            if (!map.name) map.name = displayName;
+        }
+
+        return map;
+    }
+
+    function getRecordValue(record, label, fallback) {
+        if (!record || !label) return fallback ?? '';
+
+        const target = String(label).trim().toLowerCase();
+        const entries = Object.entries(record);
+        const exact = entries.find(([key]) => String(key).trim().toLowerCase() === target);
+        if (exact && String(exact[1]).trim() !== '') return String(exact[1]).trim();
+
+        const partial = entries.find(([key]) => String(key).trim().toLowerCase().includes(target));
+        if (partial && String(partial[1]).trim() !== '') return String(partial[1]).trim();
+
+        return fallback ?? '';
     }
 
     function normalizeHexColor(value) {
@@ -892,6 +1053,8 @@
                 hintEl.innerText = `Fields: ${labels}`;
             }
         }
+
+        renderFinalizePreview();
     }
 
     function syncPreviewField(id) {
@@ -910,6 +1073,68 @@
         
         document.getElementById(`card_${id}`).classList.add('active');
         document.getElementById(`drag_${id}`).classList.add('active');
+    }
+
+    function renderFinalizePreview() {
+        const recipientCountEl = document.getElementById('finalRecipientCount');
+        const fieldCountEl = document.getElementById('finalFieldCount');
+        const templateNameEl = document.getElementById('finalTemplateName');
+        const recipientNameEl = document.getElementById('finalRecipientName');
+        const recipientEmailEl = document.getElementById('finalRecipientEmail');
+        const indicatorEl = document.getElementById('previewRecipientIndicator');
+        const emptyEl = document.getElementById('finalizePreviewEmpty');
+        const wrapperEl = document.getElementById('finalizePreviewWrapper');
+        const stageEl = document.getElementById('finalizePreviewStage');
+        const imageEl = document.getElementById('finalizePreviewImage');
+
+        if (recipientCountEl) recipientCountEl.innerText = String(csvRecords.length);
+        if (fieldCountEl) fieldCountEl.innerText = String(fields.length);
+        if (templateNameEl) {
+            const templateFile = document.getElementById('templateInput').files[0];
+            templateNameEl.innerText = templateFile ? templateFile.name : 'Not loaded';
+        }
+
+        const hasPreview = Boolean(templatePreviewSrc) && csvRecords.length > 0;
+        if (!hasPreview) {
+            if (recipientNameEl) recipientNameEl.innerText = 'No recipient selected';
+            if (recipientEmailEl) recipientEmailEl.innerText = 'Upload CSV and template to preview certificates.';
+            if (indicatorEl) indicatorEl.innerText = `Recipient 0 of ${csvRecords.length}`;
+            if (emptyEl) emptyEl.classList.remove('d-none');
+            if (wrapperEl) wrapperEl.classList.add('d-none');
+            return;
+        }
+
+        previewRecipientIndex = Math.max(0, Math.min(previewRecipientIndex, csvRecords.length - 1));
+        const record = csvRecords[previewRecipientIndex];
+        const displayName = getRecordValue(record, 'display_name', getRecordValue(record, 'name', 'Recipient'));
+        const email = getRecordValue(record, 'email', 'No email column detected');
+
+        if (recipientNameEl) recipientNameEl.innerText = displayName || 'Recipient';
+        if (recipientEmailEl) recipientEmailEl.innerText = email;
+        if (indicatorEl) indicatorEl.innerText = `Recipient ${previewRecipientIndex + 1} of ${csvRecords.length}`;
+        if (imageEl) imageEl.src = templatePreviewSrc;
+        if (emptyEl) emptyEl.classList.add('d-none');
+        if (wrapperEl) wrapperEl.classList.remove('d-none');
+
+        stageEl.querySelectorAll('.finalize-preview-field').forEach(el => el.remove());
+
+        fields.forEach(field => {
+            const text = getRecordValue(record, field.label, field.placeholder);
+            const fieldEl = document.createElement('div');
+            fieldEl.className = 'finalize-preview-field';
+            fieldEl.innerText = text || field.placeholder;
+            fieldEl.style.left = `${field.x}%`;
+            fieldEl.style.top = `${field.y}%`;
+            fieldEl.style.fontSize = `${field.size}px`;
+            fieldEl.style.color = field.color;
+            stageEl.appendChild(fieldEl);
+        });
+    }
+
+    function changeFinalizePreview(direction) {
+        if (!csvRecords.length) return;
+        previewRecipientIndex = (previewRecipientIndex + direction + csvRecords.length) % csvRecords.length;
+        renderFinalizePreview();
     }
 
     // Draggable Logic
@@ -980,7 +1205,7 @@
             const reader = new FileReader();
             reader.onload = function(e) {
                 const text = e.target.result;
-                const rows = parseCsvRows(text, 6);
+                const rows = parseCsvRows(text);
                 if (!rows || rows.length < 2) return;
 
                 const headers = rows[0].map(h => String(h).trim()).filter(Boolean);
@@ -988,6 +1213,8 @@
                 const computedDisplayName = computeDisplayNameFromRow(headers, firstRow);
                 csvHeaders = computedDisplayName ? [...headers, 'display_name'] : headers;
                 csvFirstRowLower = buildFirstRowLower(headers, firstRow);
+                csvRecords = rows.slice(1).map(row => buildRecordMap(headers, row));
+                previewRecipientIndex = 0;
                 csvReady = true;
 
                 const detectedEl = document.getElementById('csvDetectedColumns');
@@ -1058,6 +1285,8 @@
                     renderFields();
                     document.getElementById('fieldsJson').value = JSON.stringify(fields);
                 }
+
+                renderFinalizePreview();
             }
             reader.readAsText(file);
         }
